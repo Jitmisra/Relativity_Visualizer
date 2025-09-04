@@ -1,0 +1,3 @@
+"""
+RelativityViz - Core physics components.
+"""
