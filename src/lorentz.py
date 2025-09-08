@@ -123,3 +123,95 @@ class FourVector:
             
         return cls(E, px, py, pz)
 
+class LorentzBoost:
+    """
+    Implements a general Lorentz boost along an arbitrary direction.
+    
+    A Lorentz boost transforms coordinates and momenta from one inertial reference 
+    frame to another moving at a constant velocity `beta_vec` relative to the first.
+    """
+    
+    def __init__(self, beta_vec: np.ndarray):
+        """
+        Initialize the Lorentz boost.
+        
+        Args:
+            beta_vec (np.ndarray): A 3D numpy array representing the boost velocity vector (v/c).
+                Boosting by `beta_vec` goes to a frame moving at velocity `beta_vec`.
+                To go to the rest frame of a particle, boost by `-particle.beta`.
+        """
+        self.beta_vec = np.asarray(beta_vec, dtype=float)
+        b2 = np.sum(self.beta_vec**2)
+        if b2 >= 1.0:
+            raise ValueError(f"Magnitude of beta vector must be < 1. Got beta^2 = {b2}")
+        self.beta_sq = b2
+
+    @property
+    def gamma(self) -> float:
+        """Lorentz factor computed from the magnitude of the boost velocity."""
+        if self.beta_sq == 0:
+            return 1.0
+        return 1.0 / np.sqrt(1.0 - self.beta_sq)
+
+    def boost_matrix(self) -> np.ndarray:
+        """
+        Returns the explicit 4x4 general Lorentz boost matrix.
+        
+        For a boost vector beta = (bx, by, bz), the matrix Lambda transforms a 
+        4-vector V via matrix multiplication: V' = Lambda @ V.
+        """
+        b2 = self.beta_sq
+        g = self.gamma
+        
+        if b2 == 0:
+            return np.eye(4)
+            
+        bx, by, bz = self.beta_vec
+        
+        # The gamma factor scaled for the spatial components
+        factor = (g - 1.0) / b2
+        
+        # Construct the 4x4 matrix
+        Lambda = np.array([
+            [g, -g*bx, -g*by, -g*bz],
+            [-g*bx, 1 + factor*bx**2, factor*bx*by, factor*bx*bz],
+            [-g*by, factor*by*bx, 1 + factor*by**2, factor*by*bz],
+            [-g*bz, factor*bz*bx, factor*bz*by, 1 + factor*bz**2]
+        ])
+        return Lambda
+
+    def boost(self, fourvector: FourVector) -> FourVector:
+        """
+        Apply the Lorentz boost to a single FourVector.
+        
+        Physical concept:
+            This returns the energy and momentum of the particle as measured by an 
+            observer in the new reference frame. Note that transverse momentum 
+            (perpendicular to the boost) is unchanged, while parallel momentum 
+            and energy mix.
+            
+        Args:
+            fourvector: The original FourVector.
+        Returns:
+            The Lorentz-boosted FourVector.
+        """
+        Lambda = self.boost_matrix()
+        v_prime = Lambda @ fourvector.to_array()
+        return FourVector(*v_prime)
+
+    def boost_many(self, array_of_fourvectors: np.ndarray) -> np.ndarray:
+        """
+        Vectorized numpy implementation for boosting N particles simultaneously.
+        
+        Args:
+            array_of_fourvectors: NumPy array of shape (N, 4) where each row is [E, px, py, pz].
+        Returns:
+            NumPy array of shape (N, 4) with the boosted components.
+        """
+        Lambda = self.boost_matrix()
+        # Lambda is (4,4), array is (N,4). We want (N,4) result.
+        # array_of_fourvectors.T is (4,N).
+        # Lambda @ (4,N) -> (4,N)
+        # Transpose back to (N,4)
+        return (Lambda @ array_of_fourvectors.T).T
+
