@@ -215,3 +215,74 @@ class LorentzBoost:
         # Transpose back to (N,4)
         return (Lambda @ array_of_fourvectors.T).T
 
+def compute_invariant_mass(fourvectors_list: List[FourVector]) -> float:
+    """
+    Sum the 4-vectors in the list and return the invariant mass of the total system.
+    
+    Physical concept:
+        For a system of particles (e.g., collision products), the invariant mass 
+        is exactly the total energy the system would have in its center-of-mass frame.
+        It is a conserved quantity in isolated systems.
+    """
+    if not fourvectors_list:
+        return 0.0
+        
+    total = fourvectors_list[0]
+    for p in fourvectors_list[1:]:
+        total += p
+        
+    m2 = total.magnitude_squared
+    return np.sqrt(max(0.0, m2))  # max to avoid floating point issues near 0
+
+def verify_boost(original_fourvectors: List[FourVector], boost: LorentzBoost) -> Dict[str, Union[np.ndarray, float, bool]]:
+    """
+    Verify a boost is correct by checking center-of-mass rest frame conditions
+    and invariant mass preservation.
+    
+    Physical concept:
+        If you boost a system into its center-of-mass frame, the total 3-momentum
+        must sum exactly to zero. Furthermore, a Lorentz boost is a rotation in 
+        spacetime, so the "length" (invariant mass) of the total 4-momentum must 
+        be identical before and after.
+        
+    Returns:
+        A dictionary with residuals, mass values, and a boolean pass/fail status.
+    """
+    # 1. Compute totals before
+    total_before = FourVector(0, 0, 0, 0)
+    for p in original_fourvectors:
+        total_before += p
+        
+    mass_before = np.sqrt(max(0.0, total_before.magnitude_squared))
+    
+    # 2. Apply Boost
+    boosted = [boost.boost(p) for p in original_fourvectors]
+    
+    # 3. Compute totals after
+    total_after = FourVector(0, 0, 0, 0)
+    for p in boosted:
+        total_after += p
+        
+    mass_after = np.sqrt(max(0.0, total_after.magnitude_squared))
+    
+    # Residual 3-momentum
+    residual_p = np.array([total_after.px, total_after.py, total_after.pz])
+    p_mag = np.linalg.norm(residual_p)
+    
+    # Mass difference
+    mass_diff = abs(mass_after - mass_before)
+    
+    # We pass if momentum is practically zero and mass is preserved
+    is_rest_frame = bool(p_mag < 1e-10)
+    is_mass_preserved = bool(mass_diff < 1e-10)
+    passed = is_rest_frame and is_mass_preserved
+    
+    return {
+        "residual_momentum": residual_p,
+        "mass_before": mass_before,
+        "mass_after": mass_after,
+        "mass_difference": mass_diff,
+        "is_rest_frame": is_rest_frame,
+        "is_mass_preserved": is_mass_preserved,
+        "passed": passed
+    }
