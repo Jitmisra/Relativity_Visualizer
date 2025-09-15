@@ -96,3 +96,85 @@ def plot_length_contraction(beta_range: Tuple[float, float] = (0, 0.99)):
     plt.savefig('length_contraction.png', dpi=150)
     return fig
 
+def plot_minkowski_diagram(events: List[Tuple[float, float]], beta: float):
+    """
+    Plot a Minkowski spacetime diagram showing world lines, rotated axes
+    of boosted frame, and light cones.
+    
+    Args:
+        events: List of (t, x) tuples representing events.
+        beta: Velocity of the moving frame to show boosted axes.
+    """
+    set_dark_theme()
+    fig, ax = plt.subplots(figsize=(8, 8))
+    
+    # Range
+    limit = max([max(abs(t), abs(x)) for t, x in events] + [5]) * 1.2
+    
+    # Light cones (45 deg)
+    x_vals = np.linspace(-limit, limit, 100)
+    ax.plot(x_vals, x_vals, '--', color='#555555', alpha=0.5, label='Light cone')
+    ax.plot(x_vals, -x_vals, '--', color='#555555', alpha=0.5)
+    
+    # Original axes (t, x)
+    ax.axhline(0, color='white', lw=1)
+    ax.axvline(0, color='white', lw=1)
+    
+    # Boosted axes (t', x')
+    if abs(beta) > 0 and abs(beta) < 1:
+        # ct' axis is x = beta * ct
+        ax.plot(beta*x_vals, x_vals, color='#ff00ff', lw=1.5, label="$ct'$ axis")
+        # x' axis is ct = beta * x
+        ax.plot(x_vals, beta*x_vals, color='#00ffff', lw=1.5, label="$x'$ axis")
+        
+    colors = []
+    # Plot events and classify interval from origin
+    for t, x in events:
+        ds2 = t**2 - x**2
+        if ds2 > 0:
+            c, label = '#00ff00', 'Timelike'
+        elif ds2 < 0:
+            c, label = '#ff0000', 'Spacelike'
+        else:
+            c, label = '#ffff00', 'Lightlike'
+        ax.plot(x, t, 'o', color=c, markersize=8)
+        
+    ax.set_xlim(-limit, limit)
+    ax.set_ylim(-limit, limit)
+    ax.set_xlabel('Space ($x$)')
+    ax.set_ylabel('Time ($ct$)')
+    ax.set_title(f'Minkowski Diagram (Frame velocity $\\beta={beta}$)')
+    ax.set_aspect('equal')
+    ax.grid(color='#333333', linestyle=':', alpha=0.6)
+    ax.legend(loc='upper left')
+    
+    plt.tight_layout()
+    plt.savefig('minkowski_diagram.png', dpi=150)
+    return fig
+
+def plot_velocity_addition(u: float, v_range: Tuple[float, float] = (-0.99, 0.99)):
+    """
+    Show relativistic velocity addition vs Newtonian addition.
+    w = (u+v)/(1+uv)
+    """
+    set_dark_theme()
+    fig, ax = plt.subplots(figsize=(8, 5))
+    
+    v = np.linspace(v_range[0], v_range[1], 200)
+    w_newt = u + v
+    w_rel = (u + v) / (1 + u * v)
+    
+    ax.plot(v, w_newt, '--', color='#ff5555', label=f'Newtonian ($w = {u} + v$)')
+    ax.plot(v, w_rel, '-', color='#55ff55', lw=2, label=f'Relativistic ($w = \\frac{{{u}+v}}{{1+{u}v}}$)')
+    ax.axhline(1, color='w', linestyle=':', alpha=0.5, label='Speed of light ($c=1$)')
+    ax.axhline(-1, color='w', linestyle=':', alpha=0.5)
+    
+    ax.set_xlabel('Frame velocity ($v$)')
+    ax.set_ylabel('Observed velocity ($w$)')
+    ax.set_title('Velocity Addition Paradox')
+    ax.legend()
+    
+    plt.tight_layout()
+    plt.savefig('velocity_addition.png', dpi=150)
+    return fig
+
